@@ -161,6 +161,8 @@ def allow_async_call(func):
                     path = ".".join(paths[-i:])
                     if "." not in path:
                         path = "." + path
+                    if "-" in path:
+                        break
                     insert = f'try:\n    from {path} import {name}\nexcept:\n    pass\n'
                     source = insert + source
             else:

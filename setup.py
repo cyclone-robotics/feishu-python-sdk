@@ -1,11 +1,11 @@
 import setuptools
 
-with open("README.md", "r") as fh:
+with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
     name="feishu-python-sdk",
-    version="0.1.1",
+    version="0.1.2",
     author="Cyclone Chatbot Dev",
     author_email="jingchao.hu@cyclone-robotics.com",
     description="一个用于和飞书开放平台交互的python库",
