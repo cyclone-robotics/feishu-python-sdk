@@ -1,0 +1,6 @@
+*.pyc
+__pycache__/*
+.coverage
+env.sh
+tests/*test.py
+*.egg-info/*
