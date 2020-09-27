@@ -11,7 +11,7 @@ setuptools.setup(
     description="一个用于和飞书开放平台交互的python库",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/cyclone-robotics/feishu",
+    url="https://github.com/cyclone-robotics/feishu-python-sdk",
     install_requires=[
         "pydantic~=1.6.1",
         "Flask~=1.1.2",
