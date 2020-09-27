@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="feishu",
+    name="feishu-python-sdk",
     version="0.1",
     author="Cyclone Chatbot Dev",
     author_email="jingchao.hu@cyclone-robotics.com",
