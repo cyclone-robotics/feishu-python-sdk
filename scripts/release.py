@@ -13,7 +13,6 @@ from subprocess import CalledProcessError, check_call, check_output
 from typing import Text, Set
 
 import questionary
-import toml
 from pep440_version_utils import Version, is_valid_version
 
 VERSION_FILE_PATH = "feishu/version.py"
@@ -48,11 +47,6 @@ def project_root() -> Path:
 def version_file_path() -> Path:
     """Path to the python file containing the version number."""
     return project_root() / VERSION_FILE_PATH
-
-
-def pyproject_file_path() -> Path:
-    """Path to the pyproject.toml."""
-    return project_root() / PYPROJECT_FILE_PATH
 
 
 def write_version_file(version: Version) -> None:
@@ -146,36 +140,9 @@ def ask_version() -> Text:
         sys.exit(1)
 
 
-def get_rasa_sdk_version() -> Text:
-    """Find out what the referenced version of the Rasa SDK is."""
-
-    dependencies_filename = "pyproject.toml"
-    toml_data = toml.load(project_root() / dependencies_filename)
-
-    try:
-        sdk_version = toml_data["tool"]["poetry"]["dependencies"]["rasa-sdk"]
-        return sdk_version[1:].strip()
-    except AttributeError:
-        raise Exception(f"Failed to find Rasa SDK version in {dependencies_filename}")
-
-
 def validate_code_is_release_ready(version: Version) -> None:
     """Make sure the code base is valid (e.g. Rasa SDK is up to date)."""
-
-    sdk = Version(get_rasa_sdk_version())
-    sdk_version = (sdk.major, sdk.minor)
-    rasa_version = (version.major, version.minor)
-
-    if sdk_version != rasa_version:
-        print()
-        print(
-            f"\033[91m There is a mismatch between the Rasa SDK version ({sdk}) "
-            f"and the version you want to release ({version}). Before you can "
-            f"release Rasa OSS, you need to release the SDK and update "
-            f"the dependency. \033[0m"
-        )
-        print()
-        sys.exit(1)
+    return True
 
 
 def git_existing_tags() -> Set[Text]:
