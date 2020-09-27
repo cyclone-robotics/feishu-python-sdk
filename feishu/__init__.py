@@ -5,4 +5,4 @@ from .client import FeishuClient
 from .errors import FeishuError, ERRORS
 from .models import *
 from .stores import TokenStore, MemoryStore, RedisStore
-from .version import version
+from .version import __version__
