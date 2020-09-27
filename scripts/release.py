@@ -55,7 +55,7 @@ def write_version_file(version: Version) -> None:
     with version_file_path().open("w") as f:
         f.write(
             '# 不要修改此文件，本文件由release.py自动生成\n'
-            '__version__ = "{version}"\n'
+            f'__version__ = "{version}"\n'
         )
     check_call(["git", "add", str(version_file_path().absolute())])
 
