@@ -1,4 +1,4 @@
-# feishu
+# feishu-python-sdk
 
 一个用于和飞书开放平台交互的python库 (feishu-python-sdk)
 

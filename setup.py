@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="feishu-python-sdk",
-    version="0.1",
+    version="0.1.1",
     author="Cyclone Chatbot Dev",
     author_email="jingchao.hu@cyclone-robotics.com",
     description="一个用于和飞书开放平台交互的python库",
