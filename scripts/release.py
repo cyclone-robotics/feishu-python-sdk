@@ -228,9 +228,10 @@ def next_version(args: argparse.Namespace) -> Version:
 
 def generate_changelog(version: Version) -> None:
     """Call tonwcrier and create a changelog from all available changelog entries."""
-    check_call(
-        ["towncrier", "--yes", "--version", str(version)], cwd=str(project_root())
-    )
+    # check_call(
+    #     ["towncrier", "--yes", "--version", str(version)], cwd=str(project_root())
+    # )
+    return
 
 
 def print_done_message(branch: Text, base: Text, version: Version) -> None:
