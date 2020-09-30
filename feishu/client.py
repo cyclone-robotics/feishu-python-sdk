@@ -7,7 +7,8 @@ import secrets
 from asyncio import Future, AbstractEventLoop
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Union, Tuple
-
+import datetime
+import threading
 import aiohttp
 import requests
 
@@ -81,7 +82,7 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
             self.executor = None
         self.closed = False
         if not token_store:
-            self.token_store = MemoryStore()
+            self.token_store = {}
         else:
             self.token_store = token_store
         self.user_info_store = {}
@@ -287,47 +288,47 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
             self.closed = True
 
     def request_app_access_token(self) -> str:
-        if not self.token_store.get("app_access_token"):
+        if not "app_access_token" in self.token_store.keys():
             body = self.request(method="GET", api_url=FEISHU_APP_ACCESS_TOKEN_URL, params={
                 "app_id": self.app_id, "app_secret": self.app_secret})
-            self.token_store.set("app_access_token", body["app_access_token"])
+            self.token_store["app_access_token"] = body["app_access_token"]
             return body["app_access_token"]
         else:
-            return self.token_store.get("app_access_token")
+            return self.token_store["app_access_token"]
 
     def request_tenant_access_token(self) -> str:
-        if not self.token_store.get("tenant_access_token"):
+        if not "tenant_access_token" in self.token_store.keys():
             body = self.request(method="GET", api_url=FEISHU_TENANT_ACCESS_TOKEN_URL, params={
                 "app_id": self.app_id, "app_secret": self.app_secret})
-            self.token_store.set("tenant_access_token",
-                                 body["tenant_access_token"])
+            self.token_store["tenant_access_token"] = body["tenant_access_token"]
             return body["tenant_access_token"]
         else:
-            return self.token_store.get("tenant_access_token")
+            return self.token_store["tenant_access_token"]
 
     def request_user_access_token(self, code: str = None) -> str:
-        if not self.token_store.get("access_token"):
+        if not "access_token" in self.token_store.keys():
+            print("get new acc")
             body = self.request(method="POST", api_url=FEISHU_USER_IDENTITY_URL, payload={
                 "app_access_token": self.request_app_access_token(), "code": code, "grant_type": "authorization_code"})
-            self.token_store.set("access_token", body["data"]["access_token"])
-            self.token_store.set(
-                "refresh_token", body["data"]["refresh_token"])
+            self.token_store["access_token"] = body["data"]["access_token"]
+            self.token_store["refresh_token"] = body["data"]["refresh_token"]
             return body["data"]["access_token"]
         else:
-            return self.token_store.get("access_token")
+            print("get old acc")
+            return self.token_store["access_token"]
 
-    def request_refreshed_user_access_token(self, app_access_token: str, code: str):
-        if not self.token_store.get("access_token"):
+    def request_refreshed_user_access_token(self) -> dict:
+        print("Refreshing user token")
+        if not "access_token" in self.token_store.keys():
             body = self.request(method="POST", api_url=FEISHU_USER_REFRESH_URL, payload={
-                "app_access_token": self.token_store["refresh_token"], "code": code, "grant_type": "authorization_code"})
-            self.token_store.set("access_token", body["data"]["access_token"])
-            self.token_store.set(
-                "refresh_token", body["data"]["refresh_token"])
+                "refresh_token": self.token_store["refresh_token"], "app_access_token": self.request_app_access_token(), "grant_type": "refresh_token"})
+            self.token_store["access_token"] = body["data"]["access_token"]
+            self.token_store["refresh_token"] = body["data"]["refresh_token"]
             return body["data"]["access_token"]
         else:
-            return self.token_store.get("access_token")
+            return self.token_store["access_token"]
 
-    def request_user_info(self):
+    def request_user_info(self) -> dict:
         if self.user_info_store == {}:
             body = self.request(method="GET", api_url=FEISHU_USER_INFO_URL, headers={
                 "Content-Type": "application/json", "Authorization": "Bearer " + self.request_user_access_token()
@@ -339,95 +340,89 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
             return self.user_info_store
 
 
+class SelfRenewClient(FeishuClient):
+    def request_user_access_token(self, code: str = None) -> str:
+        if not "access_token" in self.token_store.keys():
+            body = self.request(method="POST", api_url=FEISHU_USER_IDENTITY_URL, payload={
+                "app_access_token": self.request_app_access_token(), "code": code, "grant_type": "authorization_code"})
+            self.token_store["access_token"] = body["data"]["access_token"]
+            self.token_store["refresh_token"] = body["data"]["refresh_token"]
+            threading.Timer(FEISHU_TOKEN_EXPIRE_TIME - FEISHU_TOKEN_UPDATE_TIME,
+                            self.request_refreshed_user_access_token()).start()
+            return body["data"]["access_token"]
+        else:
+            return self.token_store["access_token"]
+
+
 class FeishuApprovalClient(FeishuClient):
-    def request_approval_info(self):
-        '''
-        In our Application, the result should be
-        {'code': 0,
-         'msg': '',
-         'data': 
-            {'approval_name': 'common primer list',
-             'form': '
-             [
-                 {"id":"widget16003258570060001","name":"Primer Name","type":"input"},
-                 {"id":"widget16003258895050001","name":"Target_vector","type":"input"},
-                 {"id":"widget16003259213360001","name":"Primer_sequence  (5\' to 3\')","type":"input"},
-                 {"id":"widget16003259337390001","name":"Purpose","type":"input"},
-                 {"id":"widget16003259563210001","name":"Ordered_by","type":"contact"}]',
-            'node_list': []
-            }
-        }
-        '''
+    def request_approval_info(self, approval_code: str) -> dict:
         body = self.request(method="POST", api_url=FEISHU_APPROVAL_DEFINITION_URL, headers={
             "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()
-        }, payload={"approval_code": FEISHU_PRIMER_APPROVAL_TOKEN,
+        }, payload={"approval_code": approval_code,
                     "locale": "en-US"}
         )
         return body
 
-    def request_approval_instance_list(self):
+    def request_approval_instance_list(self, approval_code: str, start: int, end: int) -> dict:
         body = self.request(method="POST", api_url=FEISHU_APPROVAL_INSTANCE_LIST_URL, headers={
             "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()
         }, payload={
-            "approval_code": FEISHU_PRIMER_APPROVAL_TOKEN,
-            "start_time": 1567690398020,
-            "end_time": 1567690398020,
+            "approval_code": approval_code,
+            "start_time": start,
+            "end_time": end,
             "offset": 0,
             "limit": 100
         }
         )
         return body
 
-    def submit_approval(self, data):
-        form = FEISHU_APPROVAL_SUBMIT_FORM % data
+    def subscribe_approval(self, approval_code) -> dict:
+        body = self.request(method="POST", api_url=FEISHU_APPROVAL_SUBSCRIBE_URL, headers={
+            "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()
+        }, payload={
+            "approval_code": approval_code
+        }
+        )
+        return body
+
+    def submit_approval(self, submit_form, approval_code, data):
+        form = submit_form % data
         body = self.request(method="POST", api_url=FEISHU_APPROVAL_CREATE_URL, headers={
             "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()}, payload={
-                    "approval_code": FEISHU_PRIMER_APPROVAL_TOKEN,
-                    "user_id": self.user_info_store['user_id'],
-                    "form": form
+            "approval_code": approval_code,
+            "user_id": self.user_info_store['user_id'],
+            "form": form
 
         })
         return body
 
     def request_approval_instance_info(self, instance_code):
-        body = self.request(method="POST", api_url=FEISHU_APPROVAL_DEFINITION_URL, headers={
+        body = self.request(method="POST", api_url=FEISHU_APPROVAL_GET_URL, headers={
             "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()
         }, payload={"instance_code": instance_code,
                     "locale": "en-US"}
         )
         return body
 
-    def spread_sheet_meta_info(self):
-        '''
-        should be
-        {'code': 0,
-        'msg': 'Success',
-        'data': {'properties': {'title': 'Primer 预订历史记录',
-        'ownerUser': 6840271496481341441,
-        'sheetCount': 1,
-        'revision': 40},
-        'sheets': [{'sheetId': '02a1d2',
-            'title': 'Sheet1',
-            'index': 0,
-            'rowCount': 200,
-            'columnCount': 20}],
-        'spreadsheetToken': 'shtcnLug0T1Tttj5UeQ6TCuyvgN'}}
-        '''
-        body = self.request(method="GET", api_url=FEISHU_SHEET_META_DATA_URL % FEISHU_PRIMER_APPROVAL_SHEET_TOKEN, headers={
+    def spread_sheet_meta_info(self, spread_sheet_token):
+        body = self.request(method="GET", api_url=FEISHU_SHEET_META_DATA_URL % spread_sheet_token, headers={
             "Content-Type": "application/json", "Authorization": "Bearer " + self.request_user_access_token()})
         return body
 
-    def prepend_sheet(self, data):
-        body = self.request(method="POST", api_url=FEISHU_SHEET_PREPEND_URL % FEISHU_PRIMER_APPROVAL_SHEET_TOKEN, headers={
+    def prepend_sheet(self, spread_sheet_token, sheet_token, prepend_range, data):
+        body = self.request(method="POST", api_url=FEISHU_SHEET_PREPEND_URL % spread_sheet_token, headers={
             "Content-Type": "application/json", "Authorization": "Bearer " + self.request_user_access_token()}, payload={
-                "spreadSheetToken": FEISHU_PRIMER_APPROVAL_SHEET_SHEET1_TOKEN,
+                "spreadSheetToken": sheet_token,
                 "Authorization": self.request_user_access_token(),
                 "valueRange": {
-                    "range": FEISHU_PRIMER_APPROVAL_SHEET_SHEET1_TOKEN + "!A2:G2",
+                    "range": sheet_token + prepend_range,
                     "values": [
-                        data               
+                        data
                     ]
                 }
         }
         )
         return body
+
+class SelfRenewApprovalClient(SelfRenewClient,FeishuApprovalClient):
+    pass
