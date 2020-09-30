@@ -142,14 +142,14 @@ pip install -e .
 - [ ] 授权
   - [x] 获取 app_access_token（企业自建应用）
   - [ ] 获取 app_access_token（应用商店应用）
-  - [ ] 获取 tenant_access_token（企业自建应用）
+  - [x] 获取 tenant_access_token（企业自建应用）
   - [ ] 获取 tenant_access_token（应用商店应用）
   - [ ] 重新推送 app_ticket
 - [ ] 身份验证
   - [ ] 请求身份验证
-  - [ ] 获取登录用户身份
-  - [ ] 刷新access_token
-  - [ ] 获取用户信息
+  - [x] 获取登录用户身份
+  - [x] 刷新access_token
+  - [x] 获取用户信息
 - [ ] 通讯录
   - [ ] 获取通讯录授权范围
   - [ ] 获取子部门列表
@@ -219,3 +219,13 @@ pip install -e .
   - [ ] 删除日程
   - [ ] 更新日程
   - [ ] 邀请/移除日程参与者
+- [ ] 审核
+  - [x] 获得审核信息
+  - [x] 获得审核实例列表
+  - [x] 获得审核实例信息
+  - [x] 提交审核
+  - [ ] 同意审核
+  - [ ] 拒绝审核
+- [ ] 文档
+  - [x] 获得spreadseet元信息
+  - [x] 向spreadsheet加入行列
