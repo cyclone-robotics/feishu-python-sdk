@@ -13,7 +13,7 @@ import requests
 
 from .apis import FeishuAPI, _get_or_create_event_loop
 from .baseclient import FeishuBaseClient
-from .consts import AppType, FEISHU_APP_ID, FEISHU_APP_SECRET
+from .consts import *
 from .errors import FeishuError, ERRORS
 from .stores import TokenStore, MemoryStore
 
@@ -23,7 +23,8 @@ logger = logging.getLogger("feishu")
 class FeishuClient(FeishuBaseClient, FeishuAPI):
     """飞书开放平台客户端"""
 
-    def __init__(self, app_id: Optional[str] = None, app_secret: Optional[str] = None,
+    def __init__(self, app_id: Optional[str] = None,
+                 app_secret: Optional[str] = None,
                  app_type: AppType = AppType.TENANT,
                  run_async: bool = False,
                  event_loop: Optional[AbstractEventLoop] = None,
@@ -45,7 +46,8 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
         """
         allowed_types = AppType.__dict__["_value2member_map_"]
         if app_type not in allowed_types or app_type == "user":
-            raise NotImplementedError(f"不支持app_type={app_type}, 暂时支持了tenant自建应用")
+            raise NotImplementedError(
+                f"不支持app_type={app_type}, 暂时支持了tenant自建应用")
 
         self.app_id = app_id
         self.app_secret = app_secret
@@ -79,34 +81,18 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
             self.executor = None
         self.closed = False
         if not token_store:
-            token_store = MemoryStore()
-        self.token_store = token_store
-
-    def get_token(self) -> Union[str, Future]:
-        if self.run_async:
-            async def _get_token_async():
-                token_ = await self.event_loop.run_in_executor(self.executor, self.token_store.get, "token")
-                if not token_:
-                    token_, expire_ = await self.api.get_tenant_access_token()
-                    await self.event_loop.run_in_executor(self.executor, self.token_store.set,
-                                                          "token", token_, expire_)
-                return token_
-
-            return asyncio.ensure_future(_get_token_async(), loop=self.event_loop)
+            self.token_store = MemoryStore()
         else:
-            token = self.token_store.get("token")
-            if not token:
-                if self.app_type == AppType.TENANT:
-                    token, expire = self.api.get_tenant_access_token()
-                    self.token_store.set("token", token, expire)
-                else:
-                    raise NotImplementedError
-
-                return token
+            self.token_store = token_store
+        self.user_info_store = {}
 
     def request(self,
                 method: str,
-                api: str,
+                api: str = None,
+                api_url: str = None,
+                headers={
+                    "Content-Type": "application/json",
+                },
                 params: dict = {},
                 payload: dict = {},
                 data: dict = {},
@@ -135,18 +121,17 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
         if self.closed:
             raise FeishuError(ERRORS.CLIENT_CLOSED, "client对象已被关闭")
 
-        headers = {
-            "Content-Type": "application/json",
-        }
-
-        url = self.endpoint + api
+        if api_url:
+            url = api_url
+        else:
+            if not api:
+                raise TypeError(
+                    "request() requires one of the positional arguments : 'api' or 'api_url")
+            url = self.endpoint + api
         timeout_pair = (self.timeout / 3, self.timeout * 2 / 3)
 
         if self.run_async:
             async def do_request_async():
-                if auth:
-                    token = await self.get_token()
-                    headers['Authorization'] = f"Bearer {token}"
                 return await self._async_request(
                     method=method, url=url, timeout_pair=timeout_pair, headers=headers,
                     params=params, payload=payload, data=data, files=files)
@@ -157,8 +142,6 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
             )
             return future
         else:
-            if auth:
-                headers['Authorization'] = f"Bearer {self.get_token()}"
             return self._sync_request(method=method, url=url, timeout_pair=timeout_pair,
                                       headers=headers, params=params, payload=payload, data=data, files=files)
 
@@ -172,9 +155,11 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
         request_id = secrets.token_hex(4)
 
         try:
-            timeout = aiohttp.ClientTimeout(sock_connect=timeout_pair[0], sock_read=timeout_pair[1])
+            timeout = aiohttp.ClientTimeout(
+                sock_connect=timeout_pair[0], sock_read=timeout_pair[1])
             if method == "GET":
-                self.logger.debug(f"GET url={url} params={params} headers={headers} (id={request_id})")
+                self.logger.debug(
+                    f"GET url={url} params={params} headers={headers} (id={request_id})")
                 resp = await self.session_async.get(url, params=params, headers=headers, timeout=timeout)
             elif method == "POST":
                 if data or files:
@@ -183,7 +168,8 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
                     for key, value in data.items():
                         form.add_field(key, value)
                     for filename, content in files.items():
-                        assert not isinstance(content, (tuple, list)), "暂时只支持bytes/str/fileobj等格式的上传数据"
+                        assert not isinstance(
+                            content, (tuple, list)), "暂时只支持bytes/str/fileobj等格式的上传数据"
                         data.add_field(filename, content)
                     self.logger.debug(f"POST(form-data) url={url} params={params} "
                                       f"data.keys={data.keys()} headers={headers} (id={request_id})")
@@ -201,12 +187,14 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
                                   f"url={url}, params={params}, payload={payload} "
                                   f"data={data} files.keys={files.keys()}")
         except aiohttp.ClientError as e:
-            raise FeishuError(ERRORS.FAILED_TO_ESTABLISH_CONNECTION, f"建立和服务器的请求失败: {e}")
+            raise FeishuError(
+                ERRORS.FAILED_TO_ESTABLISH_CONNECTION, f"建立和服务器的请求失败: {e}")
 
         try:
             result = await resp.json(content_type=None)
         except ValueError:
-            raise FeishuError(ERRORS.UNABLE_TO_PARSE_SERVER_RESPONSE, f"服务器返回格式有问题，无法解析成JSON: {resp.text}")
+            raise FeishuError(ERRORS.UNABLE_TO_PARSE_SERVER_RESPONSE,
+                              f"服务器返回格式有问题，无法解析成JSON: {resp.text}")
 
         if result.get("code") != 0:
             raise FeishuError(result.get("code") or ERRORS.UNKNOWN_SERVER_ERROR,
@@ -220,8 +208,10 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
         request_id = secrets.token_hex(4)
         try:
             if method == "GET":
-                self.logger.debug(f"GET url={url} params={params} headers={headers} (id={request_id})")
-                resp = self.session.get(url, params=params, headers=headers, timeout=timeout_pair)
+                self.logger.debug(
+                    f"GET url={url} params={params} headers={headers} (id={request_id})")
+                resp = self.session.get(
+                    url, params=params, headers=headers, timeout=timeout_pair)
             elif method == "POST":
                 self.logger.debug(f"POST url={url} params={params} json={payload} "
                                   f"data={data} files.keys={files.keys()} headers={headers} (id={request_id})")
@@ -232,12 +222,14 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
                                   f"不支持的请求method: {method}, 调用上下文: "
                                   f"api={api}, params={params}, payload={payload}")
         except requests.exceptions.RequestException as e:
-            raise FeishuError(ERRORS.FAILED_TO_ESTABLISH_CONNECTION, f"建立和服务器的请求失败: {e}")
+            raise FeishuError(
+                ERRORS.FAILED_TO_ESTABLISH_CONNECTION, f"建立和服务器的请求失败: {e}")
 
         try:
             result = resp.json()
         except ValueError:
-            raise FeishuError(ERRORS.UNABLE_TO_PARSE_SERVER_RESPONSE, f"服务器返回格式有问题，无法解析成JSON: {resp.text}")
+            raise FeishuError(ERRORS.UNABLE_TO_PARSE_SERVER_RESPONSE,
+                              f"服务器返回格式有问题，无法解析成JSON: {resp.text}")
 
         if result.get("code") != 0:
             raise FeishuError(result.get("code") or ERRORS.UNKNOWN_SERVER_ERROR,
@@ -293,3 +285,149 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
         if not self.closed and self.session_async:
             self.session_async.close()
             self.closed = True
+
+    def request_app_access_token(self) -> str:
+        if not self.token_store.get("app_access_token"):
+            body = self.request(method="GET", api_url=FEISHU_APP_ACCESS_TOKEN_URL, params={
+                "app_id": self.app_id, "app_secret": self.app_secret})
+            self.token_store.set("app_access_token", body["app_access_token"])
+            return body["app_access_token"]
+        else:
+            return self.token_store.get("app_access_token")
+
+    def request_tenant_access_token(self) -> str:
+        if not self.token_store.get("tenant_access_token"):
+            body = self.request(method="GET", api_url=FEISHU_TENANT_ACCESS_TOKEN_URL, params={
+                "app_id": self.app_id, "app_secret": self.app_secret})
+            self.token_store.set("tenant_access_token",
+                                 body["tenant_access_token"])
+            return body["tenant_access_token"]
+        else:
+            return self.token_store.get("tenant_access_token")
+
+    def request_user_access_token(self, code: str = None) -> str:
+        if not self.token_store.get("access_token"):
+            body = self.request(method="POST", api_url=FEISHU_USER_IDENTITY_URL, payload={
+                "app_access_token": self.request_app_access_token(), "code": code, "grant_type": "authorization_code"})
+            self.token_store.set("access_token", body["data"]["access_token"])
+            self.token_store.set(
+                "refresh_token", body["data"]["refresh_token"])
+            return body["data"]["access_token"]
+        else:
+            return self.token_store.get("access_token")
+
+    def request_refreshed_user_access_token(self, app_access_token: str, code: str):
+        if not self.token_store.get("access_token"):
+            body = self.request(method="POST", api_url=FEISHU_USER_REFRESH_URL, payload={
+                "app_access_token": self.token_store["refresh_token"], "code": code, "grant_type": "authorization_code"})
+            self.token_store.set("access_token", body["data"]["access_token"])
+            self.token_store.set(
+                "refresh_token", body["data"]["refresh_token"])
+            return body["data"]["access_token"]
+        else:
+            return self.token_store.get("access_token")
+
+    def request_user_info(self):
+        if self.user_info_store == {}:
+            body = self.request(method="GET", api_url=FEISHU_USER_INFO_URL, headers={
+                "Content-Type": "application/json", "Authorization": "Bearer " + self.request_user_access_token()
+            }, params={"user_access_token": self.request_user_access_token()})
+            for k, v in body['data'].items():
+                self.user_info_store[k] = v
+            return body
+        else:
+            return self.user_info_store
+
+
+class FeishuApprovalClient(FeishuClient):
+    def request_approval_info(self):
+        '''
+        In our Application, the result should be
+        {'code': 0,
+         'msg': '',
+         'data': 
+            {'approval_name': 'common primer list',
+             'form': '
+             [
+                 {"id":"widget16003258570060001","name":"Primer Name","type":"input"},
+                 {"id":"widget16003258895050001","name":"Target_vector","type":"input"},
+                 {"id":"widget16003259213360001","name":"Primer_sequence  (5\' to 3\')","type":"input"},
+                 {"id":"widget16003259337390001","name":"Purpose","type":"input"},
+                 {"id":"widget16003259563210001","name":"Ordered_by","type":"contact"}]',
+            'node_list': []
+            }
+        }
+        '''
+        body = self.request(method="POST", api_url=FEISHU_APPROVAL_DEFINITION_URL, headers={
+            "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()
+        }, payload={"approval_code": FEISHU_PRIMER_APPROVAL_TOKEN,
+                    "locale": "en-US"}
+        )
+        return body
+
+    def request_approval_instance_list(self):
+        body = self.request(method="POST", api_url=FEISHU_APPROVAL_INSTANCE_LIST_URL, headers={
+            "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()
+        }, payload={
+            "approval_code": FEISHU_PRIMER_APPROVAL_TOKEN,
+            "start_time": 1567690398020,
+            "end_time": 1567690398020,
+            "offset": 0,
+            "limit": 100
+        }
+        )
+        return body
+
+    def submit_approval(self, data):
+        form = FEISHU_APPROVAL_SUBMIT_FORM % data
+        body = self.request(method="POST", api_url=FEISHU_APPROVAL_CREATE_URL, headers={
+            "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()}, payload={
+                    "approval_code": FEISHU_PRIMER_APPROVAL_TOKEN,
+                    "user_id": self.user_info_store['user_id'],
+                    "form": form
+
+        })
+        return body
+
+    def request_approval_instance_info(self, instance_code):
+        body = self.request(method="POST", api_url=FEISHU_APPROVAL_DEFINITION_URL, headers={
+            "Content-Type": "application/json", "Authorization": "Bearer " + self.request_tenant_access_token()
+        }, payload={"instance_code": instance_code,
+                    "locale": "en-US"}
+        )
+        return body
+
+    def spread_sheet_meta_info(self):
+        '''
+        should be
+        {'code': 0,
+        'msg': 'Success',
+        'data': {'properties': {'title': 'Primer 预订历史记录',
+        'ownerUser': 6840271496481341441,
+        'sheetCount': 1,
+        'revision': 40},
+        'sheets': [{'sheetId': '02a1d2',
+            'title': 'Sheet1',
+            'index': 0,
+            'rowCount': 200,
+            'columnCount': 20}],
+        'spreadsheetToken': 'shtcnLug0T1Tttj5UeQ6TCuyvgN'}}
+        '''
+        body = self.request(method="GET", api_url=FEISHU_SHEET_META_DATA_URL % FEISHU_PRIMER_APPROVAL_SHEET_TOKEN, headers={
+            "Content-Type": "application/json", "Authorization": "Bearer " + self.request_user_access_token()})
+        return body
+
+    def prepend_sheet(self, data):
+        body = self.request(method="POST", api_url=FEISHU_SHEET_PREPEND_URL % FEISHU_PRIMER_APPROVAL_SHEET_TOKEN, headers={
+            "Content-Type": "application/json", "Authorization": "Bearer " + self.request_user_access_token()}, payload={
+                "spreadSheetToken": FEISHU_PRIMER_APPROVAL_SHEET_SHEET1_TOKEN,
+                "Authorization": self.request_user_access_token(),
+                "valueRange": {
+                    "range": FEISHU_PRIMER_APPROVAL_SHEET_SHEET1_TOKEN + "!A2:G2",
+                    "values": [
+                        data               
+                    ]
+                }
+        }
+        )
+        return body
