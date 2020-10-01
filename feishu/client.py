@@ -338,21 +338,31 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
             return body
         else:
             return self.user_info_store
-
-
+            
 class SelfRenewClient(FeishuClient):
     def request_user_access_token(self, code: str = None) -> str:
         if not "access_token" in self.token_store.keys():
             body = self.request(method="POST", api_url=FEISHU_USER_IDENTITY_URL, payload={
                 "app_access_token": self.request_app_access_token(), "code": code, "grant_type": "authorization_code"})
-            self.token_store["access_token"] = body["data"]["access_token"]
+            self.token_store["access_token" ] = body["data"]["access_token"]
             self.token_store["refresh_token"] = body["data"]["refresh_token"]
-            threading.Timer(FEISHU_TOKEN_EXPIRE_TIME - FEISHU_TOKEN_UPDATE_TIME,
-                            self.request_refreshed_user_access_token()).start()
+            self._create_timer()
             return body["data"]["access_token"]
         else:
             return self.token_store["access_token"]
 
+    def _request_refreshed_user_access_token(self) -> dict:
+        print("Refreshing user token")
+        body = self.request(method="POST", api_url=FEISHU_USER_REFRESH_URL, payload={
+               "refresh_token": self.token_store["refresh_token"], "app_access_token": self.request_app_access_token(), "grant_type": "refresh_token"})
+        self.token_store["access_token"] =  body["data"]["access_token"]
+        self.token_store["refresh_token"] = body["data"]["refresh_token"]
+        self._create_timer()
+        return body["data"]["access_token"]
+    
+    def _create_timer(self):
+        t = threading.Timer(FEISHU_TOKEN_EXPIRE_TIME - FEISHU_TOKEN_UPDATE_TIME, self._request_refreshed_user_access_token)
+        t.start()
 
 class FeishuApprovalClient(FeishuClient):
     def request_approval_info(self, approval_code: str) -> dict:
