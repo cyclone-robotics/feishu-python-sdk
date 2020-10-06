@@ -339,29 +339,90 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
         else:
             return self.user_info_store
             
-class SelfRenewClient(FeishuClient):
+class FeishuSelfRenewClient(FeishuClient):
     def request_user_access_token(self, code: str = None) -> str:
         if not "access_token" in self.token_store.keys():
             body = self.request(method="POST", api_url=FEISHU_USER_IDENTITY_URL, payload={
                 "app_access_token": self.request_app_access_token(), "code": code, "grant_type": "authorization_code"})
-            self.token_store["access_token" ] = body["data"]["access_token"]
+            self.token_store["access_token"] = body["data"]["access_token"]
             self.token_store["refresh_token"] = body["data"]["refresh_token"]
-            self._create_timer()
+            self._create_user_access_token_timer()
             return body["data"]["access_token"]
         else:
             return self.token_store["access_token"]
 
     def _request_refreshed_user_access_token(self) -> dict:
-        print("Refreshing user token")
-        body = self.request(method="POST", api_url=FEISHU_USER_REFRESH_URL, payload={
-               "refresh_token": self.token_store["refresh_token"], "app_access_token": self.request_app_access_token(), "grant_type": "refresh_token"})
-        self.token_store["access_token"] =  body["data"]["access_token"]
+        print("[" + time.ctime() + "] Refreshing user token using refresh token: " +
+              self.token_store["refresh_token"])
+        try:
+            body = self.request(method="POST", api_url=FEISHU_USER_REFRESH_URL, payload={
+                "refresh_token": self.token_store["refresh_token"], "app_access_token": self.request_app_access_token(), "grant_type": "refresh_token"})
+        except FeishuError:
+            print(
+                "[" + time.ctime() + "] Refreshing user token failed. Try again after 60s")
+            time.sleep(60)
+            self._request_refreshed_user_access_token()
+        self.token_store["access_token"] = body["data"]["access_token"]
         self.token_store["refresh_token"] = body["data"]["refresh_token"]
-        self._create_timer()
-        return body["data"]["access_token"]
-    
-    def _create_timer(self):
+        self._create_user_access_token_timer()
+
+    def request_app_access_token(self) -> str:
+        if not "app_access_token" in self.token_store.keys():
+            body = self.request(method="GET", api_url=FEISHU_APP_ACCESS_TOKEN_URL, params={
+                "app_id": self.app_id, "app_secret": self.app_secret})
+            self.token_store["app_access_token"] = body["app_access_token"]
+            if not self.app_access_token_flag:
+                self.app_access_token_flag = True
+                self._create_app_access_token_timer()
+            return body["app_access_token"]
+        else:
+            return self.token_store["app_access_token"]
+
+    def _request_app_access_token(self) -> str:
+        try:    
+            body = self.request(method="GET", api_url=FEISHU_APP_ACCESS_TOKEN_URL, params={"app_id": self.app_id, "app_secret": self.app_secret})
+        except FeishuError:
+            print(
+                "[" + time.ctime() + "] Refreshing app token failed. Try again after 60s")
+            time.sleep(60)
+            self._request_app_access_token()
+        self.token_store["app_access_token"] = body["app_access_token"]
+        self._create_app_access_token_timer()
+
+    def request_tenant_access_token(self) -> str:
+        if not "tenant_access_token" in self.token_store.keys():
+            body = self.request(method="GET", api_url=FEISHU_TENANT_ACCESS_TOKEN_URL, params={
+                "app_id": self.app_id, "app_secret": self.app_secret})
+            self.token_store["tenant_access_token"] = body["tenant_access_token"]
+            if not self.tenant_access_token_flag:
+                self.tenant_access_token_flag = True
+                self._create_tenant_access_token_timer()
+            return body["tenant_access_token"]
+        else:
+            return self.token_store["tenant_access_token"]
+
+    def _request_tenant_access_token(self) -> str:
+        try:
+            body = self.request(method="GET", api_url=FEISHU_TENANT_ACCESS_TOKEN_URL, params={"app_id": self.app_id, "app_secret": self.app_secret})
+        except FeishuError:
+            print(
+                "[" + time.ctime() + "] Refreshing app token failed. Try again after 60s")
+            time.sleep(60)
+            self._request_tenant_access_token()
+        self.token_store["tenant_access_token"] = body["tenant_access_token"]
+        self._create_tenant_access_token_timer()
+
+
+    def _create_user_access_token_timer(self):
         t = threading.Timer(FEISHU_TOKEN_EXPIRE_TIME - FEISHU_TOKEN_UPDATE_TIME, self._request_refreshed_user_access_token)
+        t.start()
+
+    def _create_app_access_token_timer(self):
+        t = threading.Timer(FEISHU_TOKEN_EXPIRE_TIME - FEISHU_TOKEN_UPDATE_TIME, self._request_app_access_token)
+        t.start()
+
+    def _create_tenant_access_token_timer(self):
+        t = threading.Timer(FEISHU_TOKEN_EXPIRE_TIME - FEISHU_TOKEN_UPDATE_TIME, self._request_tenant_access_token)
         t.start()
 
 class FeishuApprovalClient(FeishuClient):
