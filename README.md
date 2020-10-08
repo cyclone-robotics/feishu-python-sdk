@@ -65,7 +65,11 @@ client = FeishuClient(app_id=..., app_secret=..., run_async=True, event_loop=loo
 print(loop.run_until_complete(client.get_bot_info()))
 ```
 
-有可能你会注意到同一个方法`get_bot_info`，它既能在同步下使用，又能在异步下使用，这是
+有可能你会注意到同一个方法`get_bot_info`，它既能在同步下使用，又能在异步下使用。
+
+这是因为再内部实现了一个名为`allow_async_call`的decorator, 用于半动态生成所有API的async版本, async版本会自动使用async版本的网络调用, 并把函数的返回通过`asyncio.ensure_future`调用修改成`asyncio.Future`
+
+具体实现方式可以参考`feishu.apis.base.allow_async_call`, 以及`feishu.client.request`, `feishu.client.fetch`。
 
 ### 订阅事件和卡片交互回调
 
