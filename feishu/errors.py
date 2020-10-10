@@ -9,7 +9,7 @@ class FeishuError(Exception):
         self.msg = msg
 
     def __repr__(self):
-        return f"{self.__class__.__name__}<{code},{msg}>"
+        return f"{self.__class__.__name__}<{self.code},{self.msg}>"
 
     __unicode__ = __repr__
 

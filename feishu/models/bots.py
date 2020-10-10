@@ -26,7 +26,7 @@ class BotActivateStatus(int, Enum):
     SET_EXPIRED = 6
 
 
-class ChatType(Enum):
+class BotChatType(str, Enum):
     GROUP = "group"
     P2P = "p2p"
 
@@ -125,7 +125,7 @@ class ChatInfo(BaseModel):
     # only available in get_chat_info API
     i18n_names: I18Names = {}
     members: List[ChatMember] = []
-    type: ChatType = "group"
+    type: BotChatType = "group"
 
 
 class ChatPagination(BaseModel):

@@ -115,7 +115,7 @@ class EventMsgType(str, Enum):
     MERGE_FORWARD = "merge_forward"
 
 
-class ChatType(str, Enum):
+class EventChatType(str, Enum):
     PRIVATE = "private"
     GROUP = "group"
 
@@ -145,7 +145,7 @@ class MessageEvent(EventContent):
     root_id: str = ''
     parent_id: str = ''
     open_chat_id: str
-    chat_type: ChatType
+    chat_type: EventChatType
     msg_type: EventMsgType
     open_id: str
     open_message_id: str

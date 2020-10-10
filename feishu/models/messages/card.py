@@ -5,7 +5,7 @@
 https://open.feishu.cn/document/ukTMukTMukTM/uczM3QjL3MzN04yNzcDN
 """
 from enum import Enum
-from typing import List
+from typing import List, Optional, Union, Literal
 
 from pydantic import BaseModel, Field
 
@@ -80,6 +80,9 @@ class CardObject(BaseModel):
 
 class CardTextObject(CardObject):
     """text对象
+
+    https://open.feishu.cn/document/ukTMukTMukTM/uUzNwUjL1cDM14SN3ATN
+
     {
         "tag": "plain_text",
         "content": "single line information",
@@ -96,14 +99,15 @@ class CardTextObject(CardObject):
     }
     """
     tag: CardTag = CardTag.PLAIN_TEXT
-    content: str = ''
-    i18n: dict = {}
-    lines: int
+    content: str
+    i18n: Optional[dict] = None
+    lines: Optional[int] = None
 
 
 class CardFieldObject(CardObject):
     """field对象
 
+    https://open.feishu.cn/document/ukTMukTMukTM/uYzNwUjL2cDM14iN3ATN
     {
         "is_short": true,
         "text": {
@@ -118,6 +122,8 @@ class CardFieldObject(CardObject):
 
 class CardURLObject(CardObject):
     """url对象
+
+    https://open.feishu.cn/document/ukTMukTMukTM/uczNwUjL3cDM14yN3ATN
 
     {
         "url": "https://www.baidu.com",
@@ -135,7 +141,9 @@ class CardURLObject(CardObject):
 class CardOptionObject(CardObject):
     """option对象
 
-     {
+    https://open.feishu.cn/document/ukTMukTMukTM/ugzNwUjL4cDM14CO3ATN
+
+    {
         "text": {
             "tag": "plain_text",
             "content": "Option"
@@ -143,15 +151,16 @@ class CardOptionObject(CardObject):
         "value": "option"
     }
     """
-    text: CardTextObject = {}
+    text: Optional[CardTextObject] = None
     value: str
-    url: str = ''
-    multi_url: CardURLObject = {}
+    url: Optional[str] = None
+    multi_url: Optional[CardURLObject] = None
 
 
 class CardConfirmObject(CardObject):
     """confirm对象
 
+    https://open.feishu.cn/document/ukTMukTMukTM/ukzNwUjL5cDM14SO3ATN
     {
         "title":{
             "tag":"plain_text",
@@ -174,6 +183,8 @@ class CardElement(BaseModel):
 
 class CardImageElement(CardElement):
     """image元素
+
+    https://open.feishu.cn/document/ukTMukTMukTM/uAzNwUjLwcDM14CM3ATN
     放置在内容模块的extra的图片尺寸固定为64*64
     放置在备注模块的elements的图片尺寸固定为16*16
     {
@@ -185,7 +196,7 @@ class CardImageElement(CardElement):
         }
     }
     """
-    tag: CardTag = CardTag.IMG
+    tag: Literal[CardTag.IMG] = CardTag.IMG
     img_key: str
     alt: CardTextObject
 
@@ -193,6 +204,7 @@ class CardImageElement(CardElement):
 class CardButtonElement(CardElement):
     """button元素
 
+    https://open.feishu.cn/document/ukTMukTMukTM/uEzNwUjLxcDM14SM3ATN
     Args:
         url 跳转链接，和multi_url互斥
         multi_url 多端跳转链接
@@ -217,18 +229,19 @@ class CardButtonElement(CardElement):
         }
     }
     """
-    tag: CardTag = CardTag.BUTTON
+    tag: Literal[CardTag.BUTTON] = CardTag.BUTTON
     text: CardTextObject
-    url: str = ''
-    multi_url: CardURLObject = {}
-    type: CardButtonType = "default"
-    value: dict = {}
-    confirm: CardConfirmObject = {}
+    url: Optional[str] = None
+    multi_url: Optional[CardURLObject] = None
+    type: Optional[CardButtonType] = None
+    value: Optional[dict] = None
+    confirm: Optional[CardConfirmObject] = None
 
 
 class CardSelectElement(CardElement):
     """selectMenu元素
 
+    https://open.feishu.cn/document/ukTMukTMukTM/uIzNwUjLycDM14iM3ATN
     selectMenu属于交互元素的一种，可用于内容块的extra字段和交互块的elements字段。
 
     选项模式（"tag":"select_static")：通过options字段配置选项，支持对多个选项进行展示供用户选择。
@@ -275,16 +288,18 @@ class CardSelectElement(CardElement):
         ]
     }
     """
-    tag: CardTag = CardTag.SELECT_STATIC
-    placeholder: CardTextObject = {}
-    initial_option: str = ''
-    options: CardOptionObject = {}
-    value: dict = {}
-    confirm: CardConfirmObject = {}
+    tag: Literal[CardTag.SELECT_STATIC, CardTag.SELECT_PERSON] = CardTag.SELECT_STATIC
+    placeholder: Optional[CardTextObject] = None
+    initial_option: Optional[str] = None
+    options: Optional[CardOptionObject] = None
+    value: Optional[dict] = None
+    confirm: Optional[CardConfirmObject] = None
 
 
 class CardOverflowElement(CardElement):
     """overflow元素
+
+    https://open.feishu.cn/document/ukTMukTMukTM/uMzNwUjLzcDM14yM3ATN
     {
         "tag": "overflow",
         "options": [
@@ -315,10 +330,10 @@ class CardOverflowElement(CardElement):
         }
     }
     """
-    tag: CardTag = CardTag.OVERFLOW
+    tag: Literal[CardTag.OVERFLOW] = CardTag.OVERFLOW
     options: List[CardOptionObject]
-    value: dict = {}
-    confirm: CardConfirmObject = {}
+    value: Optional[dict] = None
+    confirm: Optional[CardConfirmObject] = None
 
 
 class CardPickerElement(CardElement):
@@ -342,23 +357,35 @@ class CardPickerElement(CardElement):
         }
     }
     """
-    tag: CardTag = CardTag.DATE_PICKER
-    initial_date: str = ''
-    initial_time: str = ''
-    initial_datetime: str = ''
-    placeholder: str = ''
-    value: dict
-    confirm: CardConfirmObject = {}
+    tag: Literal[CardTag.DATE_PICKER] = CardTag.DATE_PICKER
+    initial_date: Optional[str] = None
+    initial_time: Optional[str] = None
+    initial_datetime: Optional[str] = None
+    placeholder: Optional[str] = None
+    value: Optional[dict] = None
+    confirm: Optional[CardConfirmObject] = None
+
+
+CardGenericElement = Union[
+    CardButtonElement, CardPickerElement, CardImageElement, CardSelectElement, CardOverflowElement, dict]
 
 
 class CardConfig(BaseModel):
-    wide_screen_mode: bool = False
-    enable_forward: bool = False
+    """卡片配置
+
+    https://open.feishu.cn/document/ukTMukTMukTM/uAjNwUjLwYDM14CM2ATN
+    """
+    wide_screen_mode: Optional[bool] = None
+    enable_forward: Optional[bool] = None
 
 
 class CardHeader(BaseModel):
+    """卡片标题
+
+    https://open.feishu.cn/document/ukTMukTMukTM/ukTNwUjL5UDM14SO1ATN
+    """
     title: CardTextObject
-    template: CardTemplate = ''
+    template: Optional[CardTemplate] = None
 
 
 class CardModule(BaseModel):
@@ -368,6 +395,8 @@ class CardModule(BaseModel):
 
 class CardDivModule(CardModule):
     """内容模块
+
+    https://open.feishu.cn/document/ukTMukTMukTM/uMjNwUjLzYDM14yM2ATN
     {
         "tag": "div",
         "text": {
@@ -400,10 +429,10 @@ class CardDivModule(CardModule):
         }
     }
     """
-    tag: CardTag = CardTag.DIV
-    text: CardTextObject = {}
+    tag: Literal[CardTag.DIV] = CardTag.DIV
+    text: CardTextObject
     fields_: List[CardFieldObject] = Field([], alias="fields")
-    extra: CardElement = {}
+    extra: Optional[CardGenericElement] = None
 
 
 class CardHrModule(CardModule):
@@ -412,11 +441,13 @@ class CardHrModule(CardModule):
         "tag": "hr",
     }
     """
-    tag: CardTag = CardTag.HR
+    tag: Literal[CardTag.HR] = CardTag.HR
 
 
 class CardImgModule(CardModule):
     """图片模块
+
+    https://open.feishu.cn/document/ukTMukTMukTM/uUjNwUjL1YDM14SN2ATN
     {
         "tag":"img",
         "title":{
@@ -430,39 +461,40 @@ class CardImgModule(CardModule):
         }
     }
     """
-    tag: CardTag = CardTag.IMG
+    tag: Literal[CardTag.IMG] = CardTag.IMG
     img_key: str
     alt: CardTextObject
-    title: CardTextObject = {}
-    mode: CardImgMode = ''
+    title: Optional[CardTextObject] = None
+    mode: Optional[CardImgMode] = None
 
 
 class CardActionModule(CardModule):
-    """交互模块
+    """交互模块"""
+    tag: Literal[CardTag.ACTION] = CardTag.ACTION
+    actions: List[CardGenericElement]
+    layout: Optional[CardLayout] = None
 
 
-    """
-    tag: CardTag = CardTag.ACTION
-    actions: List[CardElement]
-    layout: CardLayout = ""
+CardGenericModule = Union[CardHrModule, CardImgModule, CardActionModule, CardDivModule, dict]
 
 
 class I18nContent(BaseModel):
-    en_us: List[CardModule] = []
-    zh_cn: List[CardModule] = []
+    en_us: Optional[List[CardGenericModule]] = None
+    zh_cn: Optional[List[CardGenericModule]] = None
 
 
 class CardContent(BaseModel):
-    config: CardConfig = {}
-    header: CardHeader = {}
-    card_link: CardURLObject = {}
-    elements: List[CardModule] = []
-    i18n_elements: I18nContent = {}
+    config: Optional[CardConfig] = None
+    header: Optional[CardHeader] = None
+    card_link: Optional[CardURLObject] = None
+    elements: Optional[List[CardGenericModule]] = None
+    i18n_elements: Optional[I18nContent] = None
 
 
 class CardMessage(BaseModel):
     """卡片消息
 
+    https://open.feishu.cn/document/ukTMukTMukTM/uYTNwUjL2UDM14iN1ATN
     Args:
         chat_id 同下
         open_id 同下
@@ -487,11 +519,11 @@ class CardMessage(BaseModel):
         }
     }
     """
-    chat_id: str = ''
-    open_id: str = ''
-    user_id: str = ''
-    email: str = ''
-    root_id: str = ''
+    chat_id: Optional[str] = None
+    open_id: Optional[str] = None
+    user_id: Optional[str] = None
+    email: Optional[str] = None
+    root_id: Optional[str] = None
     msg_type: str = SendMsgType.INTERACTIVE
     card: CardContent
-    update_multi: bool = False
+    update_multi: Optional[bool] = None

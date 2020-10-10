@@ -8,18 +8,26 @@
 from typing import Union, Callable, Optional, Awaitable
 
 from .base import BaseAPI, allow_async_call, decrypt_aes
-from ..models import CardMessage, CardAction, CardContent
+from ..models import CardMessage, CardAction, CardContent, SendMsgType
 
 
 class CardAPI(BaseAPI):
     @allow_async_call
-    def send_card(self, card: Union[dict, CardMessage]) -> str:
+    def send_card(self, card: Union[dict, CardMessage], update_multi: bool = None,
+                  open_id: str = '', user_id: str = '', email: str = '',
+                  chat_id: str = '', root_id: str = '') -> Optional[str]:
         """发送卡片消息
 
         https://open.feishu.cn/document/ukTMukTMukTM/uYTNwUjL2UDM14iN1ATN
 
         Args:
             card: dict或CardMessage类型
+            update_multi: 控制卡片是否是共享卡片, 默认位False
+            open_id: 用户的飞信ID(自建应用)
+            user_id: 用户的应用ID(三方应用)
+            email: 用户的邮箱
+            chat_id: 群ID, 以上4种ID必须提供一种, 优先级为chat_id>open_id>user_id>email
+            root_id: 回复消息所对应的呃消息id, 可选
         Returns:
             message_id
 
@@ -33,14 +41,62 @@ class CardAPI(BaseAPI):
                 // card content
             }
         }
+
+        card参数示例
+        {
+            "config": {
+                "wide_screen_mode": true
+            },
+            "header": {
+                "title": {
+                    "tag": "plain_text",
+                    "content": "this is header"
+                }
+            },
+            "elements": [
+                {
+                    "tag": "div",
+                    "text": {
+                        "tag": "plain_text",
+                        "content": "This is a very very very very very very very long text;"
+                    }
+                },
+                {
+                    "tag": "action",
+                    "actions": [
+                        {
+                            "tag": "button",
+                            "text": {
+                                "tag": "plain_text",
+                                "content": "Read"
+                            },
+                            "type": "default"
+                        }
+                    ]
+                }
+            ]
+        }
         """
         api = "/message/v4/send/"
 
-        if isinstance(card, CardMessage):
-            payload = card.dict(exclude_unset=True)
-        else:
-            payload = dict(card)
+        msg = CardMessage(
+            msg_type=SendMsgType.INTERACTIVE,
+            card=card,
+            update_multi=update_multi
+        )
+        if root_id:
+            msg.root_id = root_id
 
+        if chat_id:
+            msg.chat_id = chat_id
+        elif open_id:
+            msg.open_id = open_id
+        elif user_id:
+            msg.user_id = user_id
+        elif email:
+            msg.email = email
+
+        payload = msg.dict(exclude_none=True)
         result = self.client.request("POST", api=api, payload=payload)
         return result.get("data", {}).get("message_id")
 

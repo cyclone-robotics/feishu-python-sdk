@@ -10,9 +10,8 @@ from .approval import (LeaveApprovalEvent, LeaveApprovalV2Event, WorkApprovalEve
                        TripApprovalEvent, OutApprovalEvent, RemedyApprovalEvent, TimeUnit, Schedule, I18nResource)
 from .base import (EventType, User, Operator, AppStatus, BuyType, UserChatEventType, PricePlanType, Event, EventContent)
 from .bot import (TextMessageEvent, ImageMessageEvent, PostMessageEvent, FileMessageEvent, MergeForwardMessageEvent,
-                  AddBotEvent, RemoveBotEvent, P2PChatCreateEvent, MessageReadEvent, ChatI18Names, ChatType,
-                  EventMsgType,
-                  Msg)
+                  AddBotEvent, RemoveBotEvent, P2PChatCreateEvent, MessageReadEvent, ChatI18Names, EventChatType,
+                  EventMsgType, Msg, MessageEvent)
 from .calendar import (EventReplyEvent, Attendee)
 from .card import (CardAction, Action)
 from .chat import (ChatDisbandEvent, UserChatEvent, GroupSettingUpdateEvent, GroupSetting)

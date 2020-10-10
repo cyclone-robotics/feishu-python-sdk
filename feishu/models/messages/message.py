@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 from enum import Enum
-from typing import List, Union
+from typing import List, Union, Optional
 
 from pydantic import BaseModel
 
@@ -51,7 +51,7 @@ class PostTextElement(PostElement):
     """
     tag: PostTag = PostTag.TEXT
     text: str
-    un_escape: bool = False
+    un_escape: Optional[bool] = None
 
 
 class PostAElement(PostElement):
@@ -65,7 +65,7 @@ class PostAElement(PostElement):
     tag: PostTag = PostTag.A
     text: str
     href: str
-    un_escape: bool = False
+    un_escape: Optional[bool] = None
 
 
 class PostAtElement(PostElement):
@@ -99,6 +99,8 @@ class PostImgElement(PostElement):
 
 class I18nPost(BaseModel):
     """Post内容
+
+    https://open.feishu.cn/document/ukTMukTMukTM/uMDMxEjLzATMx4yMwETM
 
     效果:
     https://sf1-ttcdn-tos.pstatp.com/obj/website-img/a3074630f25fb0e7d3df394c1348ba41_cn.png
@@ -142,14 +144,14 @@ class I18nPost(BaseModel):
         ]
     }
     """
-    title: str = ''
+    title: Optional[str] = None
     content: List[List[PostElement]]
 
 
 class Post(BaseModel):
     """ 这里暂未处理i18n相关, 其实可以都列一下 """
-    zh_cn: Union[I18nPost, dict] = {}
-    en_us: Union[I18nPost, dict] = {}
+    zh_cn: Optional[Union[I18nPost, dict]] = None
+    en_us: Optional[Union[I18nPost, dict]] = None
 
 
 class PostContent(Content):
@@ -171,11 +173,11 @@ class Message(BaseModel):
         msg_type 消息类型, 见MsgType
         content 消息内容, 见Content
     """
-    chat_id: str = ''
-    open_id: str = ''
-    user_id: str = ''
-    email: str = ''
-    root_id: str = ''
+    chat_id: Optional[str] = None
+    open_id: Optional[str] = None
+    user_id: Optional[str] = None
+    email: Optional[str] = None
+    root_id: Optional[str] = None
     msg_type: SendMsgType
     content: Content
 
@@ -270,7 +272,7 @@ class ReadUser(BaseModel):
     """
     open_id: str
     timestamp: str
-    user_id: str
+    user_id: Optional[str] = None
 
 
 class BatchMessage(BaseModel):

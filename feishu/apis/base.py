@@ -125,10 +125,8 @@ def allow_async_call(func):
         #     ...                                         ...
         source = inspect.getsource(func)
         source = textwrap.dedent(source)
+
         # 加上async def
-        # source = re.sub(r'def(\s*' + name + r')(.*?)->[^:]*:\n        ',
-        #                 r'async def\1_async\2-> "Future":\n        ',
-        #                 source, re.DOTALL)
         source2 = re.compile(r'def(\s*' + name + r')(\(.*?)->[^:]*:\s*\n    ', re.DOTALL).sub(
             r'async def\1_async\2-> "Future":\n    ', source)
         if source2 == source:
@@ -144,31 +142,34 @@ def allow_async_call(func):
         # 去掉decorator
         source = re.sub(r'\s*@allow_async_call\s*\n', '', source)
 
-        while True:
-            BaseAPI.logger.debug(f"自动生成的async版本API:{name} ---\n{source}")
-            filename = "api_" + secrets.token_hex(4) + ".py"
-            compiled = compile(source, filename, mode="exec")
-            linecache.cache[filename] = (len(source), None, [line + '\n' for line in source.splitlines()], filename)
+        # 试着从源文件import各种依赖，以免调用的时候出问题
+        filename = func.__code__.co_filename[:-3].replace(os.path.sep, '.')
+        paths = filename.split('.')
+        for i in range(1, min(6, len(paths) + 1)):
+            path = ".".join(paths[-i:])
+            # if "." not in path:
+            #     path = "." + path
+            if "-" in path:
+                break
             try:
-                # 试着编译, 有可能因为有变量没引入所以不成功
-                exec(compiled, globals(), locals())
-            except NameError as e:
-                # 不成功就试着从源文件import
-                name = re.compile(r"name '([^']+)").search(str(e)).group(1)
-                filename = func.__code__.co_filename[:-3].replace(os.path.sep, '.')
-                paths = filename.split('.')
-                for i in range(1, min(5, len(paths) + 1)):
-                    path = ".".join(paths[-i:])
-                    if "." not in path:
-                        path = "." + path
-                    if "-" in path:
-                        break
-                    insert = f'try:\n    from {path} import {name}\nexcept:\n    pass\n'
-                    source = insert + source
+                insert = f"from {path} import *\n"
+                exec(insert)
+            except:
+                continue
             else:
+                source = insert + source
+
+                # 成功一次就应该够了
                 break
 
-        context[newname] = locals()[newname]
+        # 生成临时文件并预编译
+        BaseAPI.logger.debug(f"自动生成的async版本API:{name} ---\n{source}")
+        filename = "api_" + secrets.token_hex(4) + ".py"
+        compiled = compile(source, filename, mode="exec")
+        linecache.cache[filename] = (len(source), None, [line + '\n' for line in source.splitlines()], filename)
+        exec(compiled, globals())
+
+        context[newname] = globals()[newname]
 
     to_be_created[newname] = create_async_api
 

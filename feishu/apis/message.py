@@ -16,8 +16,9 @@ from typing import Optional, Union, Type, List
 from .base import BaseAPI, allow_async_call
 from ..consts import FEISHU_BATCH_SEND_SIZE
 from ..errors import ERRORS, FeishuError
-from ..models import Message, TextMessage, TextContent, SendMsgType, Content, ImageMessage, PostMessage, \
-    ShareChatMessage, ImageContent, I18nPost, PostContent, ShareChatContent, BatchSendResponse, BatchMessage
+from ..models import (Message, TextMessage, TextContent, SendMsgType, Content, ImageMessage, PostMessage,
+                      ShareChatMessage, ImageContent, I18nPost, PostContent, ShareChatContent, BatchSendResponse,
+                      BatchMessage, CardMessage)
 
 fileobj = Type
 Image = Type
@@ -83,9 +84,8 @@ class MessageAPI(BaseAPI):
         >>> client.send(msg)
         """
         api = "/message/v4/send/"
-
         if isinstance(message, Message):
-            payload = message.dict(exclude_unset=True)
+            payload = message.dict(exclude_none=True)
         else:
             payload = message
         result = self.client.request("POST", api=api, payload=payload)
