@@ -134,10 +134,15 @@ def allow_async_call(func):
                 r'async def\1_async\2) -> "Future":\n    ', source2)
         source = source2
 
-        # 修改await
+        # 修改await, 目前就修改两种:
+        # - xxx = self.method
+        # - return self.method
         for method, newmethod in async_method_mapping.items():
-            source = re.sub(r'    (\S+)\s*=\s*(' + re.escape(method) + r')(.*?\n    )',
+            source = re.sub(r'    (\S+)\s*=\s*(' + re.escape(method) + r')(.*?\n(\n|    ))',
                             r'    \1 = await ' + newmethod + r'\3',
+                            source)
+            source = re.sub(r'    (\s*)return\s*(' + re.escape(method) + r')(.*?\n(\n|    ))',
+                            r'    \1return await ' + newmethod + r'\3',
                             source)
         # 去掉decorator
         source = re.sub(r'\s*@allow_async_call\s*\n', '', source)
@@ -163,7 +168,8 @@ def allow_async_call(func):
                 break
 
         # 生成临时文件并预编译
-        BaseAPI.logger.debug(f"自动生成的async版本API:{name} ---\n{source}")
+        # 这个输出太多了暂时禁用
+        # BaseAPI.logger.debug(f"自动生成的async版本API:{name} ---\n{source}")
         filename = "api_" + secrets.token_hex(4) + ".py"
         compiled = compile(source, filename, mode="exec")
         linecache.cache[filename] = (len(source), None, [line + '\n' for line in source.splitlines()], filename)

@@ -175,11 +175,11 @@ def flask_blueprint(blueprint: "flask.Blueprint", path: str,
         verify_token: 校验token, 需和飞书后台配置一致, 不提供则不校验请求来源
         encrypt_key: 加密key, 需和飞书后台配置一致, 不提供则无法解析加密数据
     """
-    import flask
+    from flask import request, jsonify
 
     @blueprint.route(path, methods=["POST"])
     def handle_card_action():
-        payload: dict = flask.request.get_json(force=True)
+        payload: dict = request.get_json(force=True)
         if "encrypt" in payload:
             payload = decrypt_aes(encrypt_key, payload["encrypt"])
 
@@ -187,11 +187,11 @@ def flask_blueprint(blueprint: "flask.Blueprint", path: str,
             return url_verification(payload)
 
         action = CardAction(**payload)
-        action.refresh_token = flask.request.headers.get("X-Refresh-Token")
+        action.refresh_token = request.headers.get("X-Refresh-Token")
         card_update = on_action(action)
         if isinstance(card_update, CardContent):
             card_update = card_update.dict(exclude_unset=True)
-        return flask.jsonify(**card_update)
+        return jsonify(**card_update)
 
     def url_verification(payload: dict):
         """配置请求网址后飞书会发送的验证请求
@@ -199,9 +199,9 @@ def flask_blueprint(blueprint: "flask.Blueprint", path: str,
         https://open.feishu.cn/document/ukTMukTMukTM/uUTNz4SN1MjL1UzM#%E9%85%8D%E7%BD%AE%E8%AF%B7%E6%B1%82%E7%BD%91%E5%9D%80
         """
         if verify_token and verify_token != payload.get("token"):
-            return flask.jsonify(challenge="")
+            return jsonify(challenge="")
 
-        return flask.jsonify(challenge=payload.get("challenge"))
+        return jsonify(challenge=payload.get("challenge"))
 
 
 def sanic_blueprint(blueprint: "sanic.Blueprint", path: str,
@@ -229,7 +229,7 @@ def sanic_blueprint(blueprint: "sanic.Blueprint", path: str,
             return url_verification(payload)
 
         action = CardAction(**payload)
-        action.refresh_token = flask.request.headers.get("X-Refresh-Token")
+        action.refresh_token = request.headers.get("X-Refresh-Token")
         card_update = await on_action(action)
         if isinstance(card_update, CardContent):
             card_update = card_update.dict(exclude_unset=True)

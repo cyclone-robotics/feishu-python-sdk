@@ -29,7 +29,7 @@ class MemoryStore(TokenStore):
 
     def get(self, key: str):
         expired_time = self.timings.get(key)
-        if expired_time and expired_time > time.time():
+        if expired_time and expired_time < time.time():
             self.timings.pop(key, None)
             self.cache.pop(key, None)
         return self.cache.get(key)

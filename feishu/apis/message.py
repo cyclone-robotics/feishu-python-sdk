@@ -18,7 +18,7 @@ from ..consts import FEISHU_BATCH_SEND_SIZE
 from ..errors import ERRORS, FeishuError
 from ..models import (Message, TextMessage, TextContent, SendMsgType, Content, ImageMessage, PostMessage,
                       ShareChatMessage, ImageContent, I18nPost, PostContent, ShareChatContent, BatchSendResponse,
-                      BatchMessage, CardMessage)
+                      BatchMessage)
 
 fileobj = Type
 Image = Type
@@ -27,6 +27,9 @@ Image = Type
 class ImageType(str, Enum):
     MESSAGE = "message"
     AVATAR = "avatar"
+
+    def __str__(self):
+        return self.value
 
 
 def create_message(msg_type: SendMsgType, content: Content,
@@ -133,9 +136,11 @@ class MessageAPI(BaseAPI):
         if not image_key:
             image_key = self._get_image_key(image=image, image_file=image_file, image_url=image_url)
 
-        msg = create_message(SendMsgType.IMAGE, content=ImageContent(image_key=image_key),
-                             root_id=root_id, chat_id=chat_id, open_id=open_id, user_id=user_id, email=email)
+        print("image_key2", image_key)
         if image_key:
+            msg = create_message(SendMsgType.IMAGE, content=ImageContent(image_key=image_key),
+                                 root_id=root_id, chat_id=chat_id, open_id=open_id, user_id=user_id, email=email)
+            print("msg=", msg.dict(exclude_none=True))
             return self.send(msg)
         else:
             self.logger.warning(f"没有提供image_key, image_url, image_file, 或image，图片未发送: msg={msg}")
@@ -250,7 +255,7 @@ class MessageAPI(BaseAPI):
         return BatchSendResponse(**(result.get("data") or {}))
 
     @allow_async_call
-    def upload_image(self, image: Union[bytes, "fileobj"], image_type: ImageType = ImageType.MESSAGE) -> Optional[str]:
+    def upload_image(self, image: Union[bytes, "fileobj"], image_type: ImageType = "message") -> Optional[str]:
         """上传图片
 
         Args:
@@ -262,7 +267,7 @@ class MessageAPI(BaseAPI):
         """
         api = "/image/v4/put/"
         data = {"image_type": image_type}
-        files = {"file": image}
+        files = {"image": image}
         result = self.client.request(method="POST", api=api, data=data, files=files)
         return result.get("data", {}).get("image_key")
 
@@ -312,7 +317,9 @@ class MessageAPI(BaseAPI):
                                   f"下载图片失败: {str(e)} image_url={image_url}")
             try:
                 image_key = self.upload_image(content)
+                print("image_key", image_key)
             except Exception as e:
                 raise FeishuError(ERRORS.INVALID_IMAGE_FILE_OR_CONTENT,
                                   f"上传图片失败: {str(e)} content={content[:20]}...")
+
         return image_key

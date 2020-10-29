@@ -9,6 +9,8 @@ https://open.feishu.cn/document/ukTMukTMukTM/uYjNwUjL2YDM14iN2ATN
 - event_callback事件外层有ts/uuid/token等字段，卡片消息没有
 - event_callback中的token是校验token, 卡片消息中的token是用来刷新消息卡片内容的
 """
+from typing import Optional
+
 from .base import BaseModel
 
 
@@ -28,8 +30,11 @@ class Action(BaseModel):
 class CardAction(BaseModel):
     """卡片互动事件
 
+    https://open.feishu.cn/document/ukTMukTMukTM/uYzMxEjL2MTMx4iNzETM
+
     Args:
-        refresh_token 需要特别提一下，这个并不是请求体里面的，而是headers['X-Refresh-Token']
+        refresh_token 请求去重,
+            需要特别提一下，这个并不是请求体里面的，而是headers['X-Refresh-Token']
             业务方通过验证 headers['X-Refresh-Token'] 来防止按钮事件被重复处理。
             在网络抖动等极端情况下，会出现卡片点击失败但是业务方已经处理过 action 的现象，
             所以业务方接口存在被重复调用的风险。
@@ -42,4 +47,4 @@ class CardAction(BaseModel):
     open_message_id: str
     token: str
     action: Action
-    refresh_token: str
+    refresh_token: Optional[str]

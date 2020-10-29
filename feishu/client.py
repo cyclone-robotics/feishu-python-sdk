@@ -102,7 +102,7 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
                 else:
                     raise NotImplementedError
 
-                return token
+            return token
 
     def request(self,
                 method: str,
@@ -141,6 +141,8 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
 
         url = self.endpoint + api
         timeout_pair = (self.timeout / 3, self.timeout * 2 / 3)
+        if files:
+            headers.pop("Content-Type")
 
         if self.run_async:
             async def do_request_async():
@@ -159,6 +161,7 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
         else:
             if auth:
                 headers['Authorization'] = f"Bearer {self.get_token()}"
+
             return self._sync_request(method=method, url=url, timeout_pair=timeout_pair,
                                       headers=headers, params=params, payload=payload, data=data, files=files)
 
@@ -183,11 +186,10 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
                     for key, value in data.items():
                         form.add_field(key, value)
                     for filename, content in files.items():
-                        assert not isinstance(content, (tuple, list)), "暂时只支持bytes/str/fileobj等格式的上传数据"
-                        data.add_field(filename, content)
+                        form.add_field(filename, content)
                     self.logger.debug(f"POST(form-data) url={url} params={params} "
-                                      f"data.keys={data.keys()} headers={headers} (id={request_id})")
-                    resp = await self.session_async.post(url, params=params, data=data, headers=headers,
+                                      f"headers={headers} (id={request_id})")
+                    resp = await self.session_async.post(url, params=params, data=form, headers=headers,
                                                          timeout=timeout)
                 else:
                     # application/json
@@ -223,14 +225,14 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
                 self.logger.debug(f"GET url={url} params={params} headers={headers} (id={request_id})")
                 resp = self.session.get(url, params=params, headers=headers, timeout=timeout_pair)
             elif method == "POST":
-                self.logger.debug(f"POST url={url} params={params} json={payload} "
-                                  f"data={data} files.keys={files.keys()} headers={headers} (id={request_id})")
-                resp = self.session.post(url, params=params, json=payload, data=data, files=files, headers=headers,
-                                         timeout=timeout_pair)
+                self.logger.debug(f"POST url={url} params={params} json={payload} data={data} "
+                                  f"files.keys={files.keys()} headers={headers} (id={request_id})")
+                resp = self.session.post(url, params=params, json=payload, data=data, files=files,
+                                         headers=headers, timeout=timeout_pair)
             else:
                 raise FeishuError(ERRORS.UNSUPPORTED_METHOD,
                                   f"不支持的请求method: {method}, 调用上下文: "
-                                  f"api={api}, params={params}, payload={payload}")
+                                  f"params={params}, payload={payload}")
         except requests.exceptions.RequestException as e:
             raise FeishuError(ERRORS.FAILED_TO_ESTABLISH_CONNECTION, f"建立和服务器的请求失败: {e}")
 
@@ -246,8 +248,8 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
         self.logger.debug(f"response={result} (id={request_id})")
         return result
 
-    def fetch(self, method: str, url: str, params: str, data: dict, json: dict, headers: dict,
-              timeout: Union[float, tuple]) \
+    def fetch(self, url: str, params: dict = {}, data: dict = {}, json: dict = {},
+              headers: dict = {}, method: str = "GET", timeout: Union[float, tuple] = 2) \
             -> Union[bytes, Future]:
         """简易sync/asyncHTTP请求Adapter
 
@@ -275,8 +277,12 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
                 self.event_loop = _get_or_create_event_loop()
 
             async def async_fetch():
-                resp = await self.session_async.request(method=method, url=url, params=params, data=data, json=json,
-                                                        headers=headers, timeout=timeout)
+                if data:
+                    resp = await self.session_async.request(method=method, url=url, params=params, data=data,
+                                                            headers=headers, timeout=timeout)
+                else:
+                    resp = await self.session_async.request(method=method, url=url, params=params, json=json,
+                                                            headers=headers, timeout=timeout)
                 return await resp.read()
 
             return asyncio.ensure_future(
@@ -284,8 +290,12 @@ class FeishuClient(FeishuBaseClient, FeishuAPI):
                 loop=self.event_loop
             )
         else:
-            resp = self.session.request(method=method, url=url, params=params, data=data, json=json,
-                                        headers=headers, timeout=timeout)
+            if data:
+                resp = self.session.request(method=method, url=url, params=params, data=data,
+                                            headers=headers, timeout=timeout)
+            else:
+                resp = self.session.request(method=method, url=url, params=params, json=json,
+                                            headers=headers, timeout=timeout)
             return resp.content
 
     async def close(self):
