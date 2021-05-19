@@ -68,7 +68,7 @@ def decrypt_aes(encrypt_key: str, encrypted: str) -> dict:
     key = hashlib.sha256(encrypt_key.encode()).digest()
     cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
     raw = cipher.decryptor().update(decoded[block_size:])
-    if raw[-1] < block_size:
+    if raw[-1] <= block_size:
         # unpad
         raw = raw[:-raw[-1]]
     return json.loads(raw)
