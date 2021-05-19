@@ -5,17 +5,28 @@
 - 发送卡片消息，临时卡片消息，删除临时卡片消息
 - flask和sanic的blueprint
 """
+import logging
 from typing import Union, Callable, Optional, Awaitable
 
 from .base import BaseAPI, allow_async_call, decrypt_aes
-from ..models import CardMessage, CardAction, CardContent, SendMsgType
+from ..models import CardMessage, CardAction, CardContent, SendMsgType, Action
+
+
+logger = logging.getLogger("feishu")
 
 
 class CardAPI(BaseAPI):
     @allow_async_call
-    def send_card(self, card: Union[dict, CardMessage], update_multi: bool = None,
-                  open_id: str = '', user_id: str = '', email: str = '',
-                  chat_id: str = '', root_id: str = '') -> Optional[str]:
+    def send_card(
+        self,
+        card: Union[dict, CardMessage],
+        update_multi: bool = None,
+        open_id: str = "",
+        user_id: str = "",
+        email: str = "",
+        chat_id: str = "",
+        root_id: str = "",
+    ) -> Optional[str]:
         """发送卡片消息
 
         https://open.feishu.cn/document/ukTMukTMukTM/uYTNwUjL2UDM14iN1ATN
@@ -80,9 +91,7 @@ class CardAPI(BaseAPI):
         api = "/message/v4/send/"
 
         msg = CardMessage(
-            msg_type=SendMsgType.INTERACTIVE,
-            card=card,
-            update_multi=update_multi
+            msg_type=SendMsgType.INTERACTIVE, card=card, update_multi=update_multi
         )
         if root_id:
             msg.root_id = root_id
@@ -132,15 +141,18 @@ class CardAPI(BaseAPI):
         失败会raise FeishuError, (code和msg对应飞书平台的code/msg)
         """
         api = "/ephemeral/v1/delete"
-        payload = {
-            "message_id": message_id
-        }
+        payload = {"message_id": message_id}
         self.client.request("POST", api=api, payload=payload)
 
 
-def setup_action_blueprint(framework: str, blueprint: Union["flask.Blueprint", "sanic.Blueprint"],
-                           path: str, on_action: callable,
-                           verify_token: Optional[str] = None, encrypt_key: Optional[str] = None):
+def setup_action_blueprint(
+    framework: str,
+    blueprint: Union["flask.Blueprint", "sanic.Blueprint"],
+    path: str,
+    on_action: callable,
+    verify_token: Optional[str] = None,
+    encrypt_key: Optional[str] = None,
+):
     """配置一个用于接收消息交互回调的Blueprint
 
     Args:
@@ -154,18 +166,32 @@ def setup_action_blueprint(framework: str, blueprint: Union["flask.Blueprint", "
         encrypt_key: 加密key, 需和飞书后台配置一致, 不提供则无法解析加密数据
     """
     if framework == "flask":
-        return flask_blueprint(blueprint=blueprint, path=path, on_action=on_action,
-                               verify_token=verify_token, encrypt_key=encrypt_key)
+        return flask_blueprint(
+            blueprint=blueprint,
+            path=path,
+            on_action=on_action,
+            verify_token=verify_token,
+            encrypt_key=encrypt_key,
+        )
     elif framework == "sanic":
-        return sanic_blueprint(blueprint=blueprint, path=path, on_action=on_action,
-                               verify_token=verify_token, encrypt_key=encrypt_key)
+        return sanic_blueprint(
+            blueprint=blueprint,
+            path=path,
+            on_action=on_action,
+            verify_token=verify_token,
+            encrypt_key=encrypt_key,
+        )
     else:
         raise NotImplementedError
 
 
-def flask_blueprint(blueprint: "flask.Blueprint", path: str,
-                    on_action: Callable[[CardAction], Union[dict, CardContent]],
-                    verify_token: Optional[str] = None, encrypt_key: Optional[str] = None):
+def flask_blueprint(
+    blueprint: "flask.Blueprint",
+    path: str,
+    on_action: Callable[[CardAction], Union[dict, CardContent]],
+    verify_token: Optional[str] = None,
+    encrypt_key: Optional[str] = None,
+):
     """配置一个用于接收消息交互回调的blueprint
 
     Args:
@@ -176,6 +202,12 @@ def flask_blueprint(blueprint: "flask.Blueprint", path: str,
         encrypt_key: 加密key, 需和飞书后台配置一致, 不提供则无法解析加密数据
     """
     from flask import request, jsonify
+
+    def on_action_wrapper(action: Action):
+        try:
+            on_action(action)
+        except Exception as e:
+            logger.exception(f"执行on_action时失败, action={action}")
 
     @blueprint.route(path, methods=["POST"])
     def handle_card_action():
@@ -188,9 +220,10 @@ def flask_blueprint(blueprint: "flask.Blueprint", path: str,
 
         action = CardAction(**payload)
         action.refresh_token = request.headers.get("X-Refresh-Token")
-        card_update = on_action(action)
+        card_update = on_action_wrapper(action)
         if isinstance(card_update, CardContent):
             card_update = card_update.dict(exclude_unset=True)
+        card_update = card_update or {}
         return jsonify(**card_update)
 
     def url_verification(payload: dict):
@@ -204,9 +237,13 @@ def flask_blueprint(blueprint: "flask.Blueprint", path: str,
         return jsonify(challenge=payload.get("challenge"))
 
 
-def sanic_blueprint(blueprint: "sanic.Blueprint", path: str,
-                    on_action: Callable[[CardAction], Awaitable[Union[dict, CardContent]]],
-                    verify_token: Optional[str] = None, encrypt_key: Optional[str] = None):
+def sanic_blueprint(
+    blueprint: "sanic.Blueprint",
+    path: str,
+    on_action: Callable[[CardAction], Awaitable[Union[dict, CardContent]]],
+    verify_token: Optional[str] = None,
+    encrypt_key: Optional[str] = None,
+):
     """配置一个用于接收消息交互回调的sanic.blueprint
 
     Args:

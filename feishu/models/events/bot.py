@@ -5,19 +5,19 @@
 https://open.feishu.cn/document/ukTMukTMukTM/uMTNxYjLzUTM24yM1EjN
 """
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 from .base import BaseModel, EventType, Operator, User, EventContent
 
 
 class ChatI18Names(BaseModel):
-    en_us: str = ''
-    zh_cn: str = ''
+    en_us: str = ""
+    zh_cn: str = ""
 
 
 class BotEvent(EventContent):
     app_id: str
-    chat_i18_names: ChatI18Names
+    chat_i18_names: Optional[ChatI18Names] = None
     chat_name: str
     chat_owner_employee_id: str
     chat_owner_open_id: str
@@ -52,6 +52,7 @@ class AddBotEvent(BotEvent):
         "type": "add_bot" // 事件类型
     }
     """
+
     type: EventType = EventType.ADD_BOT
 
 
@@ -77,6 +78,7 @@ class RemoveBotEvent(BaseModel):
         "type": "remove_bot" // 移除机器人：remove_bot
     }
     """
+
     type: EventType = EventType.REMOVE_BOT
 
 
@@ -99,6 +101,7 @@ class P2PChatCreateEvent(EventContent):
         }
     }
     """
+
     app_id: str
     chat_id: str
     operator: Operator
@@ -139,11 +142,12 @@ class MessageEvent(EventContent):
         "text_without_at_bot":"消息内容 <at open_id="yyy">@张三</at>" //消息内容，会过滤掉at你的机器人的内容
     }
     """
+
     type: EventType = EventType.MESSAGE
     app_id: str
     tenant_key: str
-    root_id: str = ''
-    parent_id: str = ''
+    root_id: str = ""
+    parent_id: str = ""
     open_chat_id: str
     chat_type: EventChatType
     msg_type: EventMsgType
@@ -171,6 +175,7 @@ class TextMessageEvent(MessageEvent):
         "text_without_at_bot":"消息内容 <at open_id="yyy">@张三</at>" //消息内容，会过滤掉at你的机器人的内容
     }
     """
+
     text: str
     text_without_at_bot: str
 
@@ -199,6 +204,7 @@ class PostMessageEvent(MessageEvent):
          ],
     }
     """
+
     text: str
     text_without_at_bot: str
     msg_type: EventMsgType = EventMsgType.POST
@@ -226,6 +232,7 @@ class ImageMessageEvent(MessageEvent):
         "image_key": "cd1ce282-94d1-4154-a326-121b07e4721e", // image_key，获取图片内容请查https://open.feishu.cn/document/ukTMukTMukTM/uYzN5QjL2cTO04iN3kDN
     }
     """
+
     msg_type: EventMsgType = EventMsgType.IMAGE
     image_height: str
     image_width: str
@@ -250,6 +257,7 @@ class FileMessageEvent(MessageEvent):
         "file_key": "file_b4do9r9b-3526-4bc4-a568-65fe3695b05g"
     }
     """
+
     msg_type: EventMsgType = EventMsgType.FILE
     file_key: str
 
@@ -269,19 +277,20 @@ class Msg(BaseModel):
         "create_time": 1550044772
     }
     """
-    root_id: str = ''
-    parent_id: str = ''
-    open_chat_id: str = ''
+
+    root_id: str = ""
+    parent_id: str = ""
+    open_chat_id: str = ""
     msg_type: EventMsgType = EventMsgType.TEXT
-    open_id: str = ''
-    open_message_id: str = ''
+    open_id: str = ""
+    open_message_id: str = ""
     is_mention: bool = False
-    text: str = ''
-    user_open_id: str = ''
-    image_key: str = ''
-    image_url: str = ''
-    file_key: str = ''
-    title: str = ''
+    text: str = ""
+    user_open_id: str = ""
+    image_key: str = ""
+    image_url: str = ""
+    file_key: str = ""
+    title: str = ""
     create_time: int = 0
 
 
@@ -341,7 +350,8 @@ class MergeForwardMessageEvent(MessageEvent):
        ]
     }
     """
-    user: str = ''
+
+    user: str = ""
     msg_list: List[Msg]
 
 
@@ -357,6 +367,7 @@ class MessageReadEvent(EventContent):
         "type": "message_read"
     }
     """
+
     app_id: str
     open_chat_id: str
     open_id: str

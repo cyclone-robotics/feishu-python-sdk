@@ -22,9 +22,10 @@ class Action(BaseModel):
         tag 交互元素的tag值
         option 选中option的value(button元素不适用)
     """
-    value: dict
+
+    value: Optional[dict] = None
     tag: str
-    option: str = ''
+    option: str = ""
 
 
 class CardAction(BaseModel):
@@ -41,6 +42,7 @@ class CardAction(BaseModel):
             X-Refresh-Token 只有在卡片点击事件成功被响应并通知到客户端的时候才会刷新，
             如果业务方的接口非幂等，可以通过缓存并验证该字段防止接口被重复调用。
     """
+
     open_id: str
     user_id: str
     tenant_key: str
